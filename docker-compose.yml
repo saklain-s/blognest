@@ -1,0 +1,219 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15
+    container_name: blognest-postgres
+    environment:
+      POSTGRES_DB: blognest
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - blognest-network
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: blognest-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - blognest-network
+
+  # Elasticsearch for search functionality
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    container_name: blognest-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - blognest-network
+
+  # Service Discovery
+  eureka:
+    image: blognest/service-discovery:latest
+    container_name: blognest-eureka
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - blognest-network
+    depends_on:
+      - postgres
+
+  # Config Server
+  config-server:
+    image: blognest/config-server:latest
+    container_name: blognest-config-server
+    ports:
+      - "8888:8888"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - blognest-network
+    depends_on:
+      - postgres
+
+  # User Service
+  user-service:
+    image: blognest/user-service:latest
+    container_name: blognest-user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/blognest_users
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+    networks:
+      - blognest-network
+    depends_on:
+      - postgres
+      - redis
+      - eureka
+      - config-server
+
+  # Blog Service
+  blog-service:
+    image: blognest/blog-service:latest
+    container_name: blognest-blog-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/blognest_blogs
+      - SPRING_REDIS_HOST=redis
+      - SPRING_ELASTICSEARCH_REST_URIS=http://elasticsearch:9200
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+    networks:
+      - blognest-network
+    depends_on:
+      - postgres
+      - redis
+      - elasticsearch
+      - eureka
+      - config-server
+
+  # Comment Service
+  comment-service:
+    image: blognest/comment-service:latest
+    container_name: blognest-comment-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/blognest_comments
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+    networks:
+      - blognest-network
+    depends_on:
+      - postgres
+      - redis
+      - eureka
+      - config-server
+
+  # Notification Service
+  notification-service:
+    image: blognest/notification-service:latest
+    container_name: blognest-notification-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/blognest_notifications
+      - SPRING_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+    networks:
+      - blognest-network
+    depends_on:
+      - postgres
+      - redis
+      - eureka
+      - config-server
+
+  # API Gateway
+  api-gateway:
+    image: blognest/api-gateway:latest
+    container_name: blognest-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+    networks:
+      - blognest-network
+    depends_on:
+      - eureka
+      - config-server
+      - user-service
+      - blog-service
+      - comment-service
+      - notification-service
+
+  # Frontend
+  frontend:
+    image: blognest/frontend:latest
+    container_name: blognest-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080/api
+    networks:
+      - blognest-network
+    depends_on:
+      - api-gateway
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: blognest-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - blognest-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: blognest-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - blognest-network
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  grafana_data:
+
+networks:
+  blognest-network:
+    driver: bridge 

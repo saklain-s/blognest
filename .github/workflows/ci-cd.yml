@@ -1,0 +1,234 @@
+name: BlogNest CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_VERSION: '3.9.5'
+
+jobs:
+  test:
+    name: Test and Code Coverage
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: blognest_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+      
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health || exit 1"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+        ports:
+          - 9200:9200
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Cache Maven packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Run tests with coverage
+      run: |
+        mvn clean test jacoco:report -Pcoverage
+        mvn verify -DskipTests=false
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./**/target/site/jacoco/jacoco.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Check code coverage threshold
+      run: |
+        # Check if coverage is above 90%
+        COVERAGE=$(mvn jacoco:report | grep -o 'Total.*[0-9]\{1,2\}\.[0-9]\{1,2\}%' | grep -o '[0-9]\{1,2\}\.[0-9]\{1,2\}')
+        if (( $(echo "$COVERAGE < 90" | bc -l) )); then
+          echo "Code coverage is below 90%: $COVERAGE%"
+          exit 1
+        fi
+        echo "Code coverage: $COVERAGE%"
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Run OWASP Dependency Check
+      run: |
+        mvn org.owasp:dependency-check-maven:check
+
+    - name: Run SpotBugs
+      run: |
+        mvn spotbugs:check
+
+  build:
+    name: Build and Package
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Build application
+      run: mvn clean package -DskipTests
+
+    - name: Build Docker images
+      run: |
+        docker build -t blognest/user-service:latest ./user-service
+        docker build -t blognest/blog-service:latest ./blog-service
+        docker build -t blognest/comment-service:latest ./comment-service
+        docker build -t blognest/notification-service:latest ./notification-service
+        docker build -t blognest/api-gateway:latest ./api-gateway
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: |
+          */target/*.jar
+          */target/classes
+          */target/test-classes
+
+  docker-push:
+    name: Push Docker Images
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Push Docker images
+      run: |
+        docker tag blognest/user-service:latest ${{ secrets.DOCKER_USERNAME }}/blognest-user-service:latest
+        docker tag blognest/blog-service:latest ${{ secrets.DOCKER_USERNAME }}/blognest-blog-service:latest
+        docker tag blognest/comment-service:latest ${{ secrets.DOCKER_USERNAME }}/blognest-comment-service:latest
+        docker tag blognest/notification-service:latest ${{ secrets.DOCKER_USERNAME }}/blognest-notification-service:latest
+        docker tag blognest/api-gateway:latest ${{ secrets.DOCKER_USERNAME }}/blognest-api-gateway:latest
+        
+        docker push ${{ secrets.DOCKER_USERNAME }}/blognest-user-service:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/blognest-blog-service:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/blognest-comment-service:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/blognest-notification-service:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/blognest-api-gateway:latest
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: docker-push
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+    - name: Deploy to staging environment
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your staging deployment logic here
+        # Example: kubectl apply -f k8s/staging/
+        # or docker-compose -f docker-compose.staging.yml up -d
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Deploy to production environment
+      run: |
+        echo "Deploying to production environment..."
+        # Add your production deployment logic here
+        # Example: kubectl apply -f k8s/production/
+        # or docker-compose -f docker-compose.production.yml up -d
+
+  notify:
+    name: Notify Team
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always()
+    
+    steps:
+    - name: Notify on success
+      if: success()
+      run: |
+        echo "✅ Deployment successful!"
+        # Add notification logic (Slack, email, etc.)
+        
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed!"
+        # Add notification logic (Slack, email, etc.) 
