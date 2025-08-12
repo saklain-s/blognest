@@ -140,7 +140,9 @@ public class UserController {
     @Operation(summary = "Validate token", description = "Validate JWT token")
     public ResponseEntity<ApiResponse<Boolean>> validateToken(@RequestHeader("Authorization") String token) {
         log.info("Validating JWT token");
-        boolean isValid = userService.validateToken(token.replace("Bearer ", ""));
+        String cleanToken = token.replace("Bearer ", "");
+        String username = userService.getUsernameFromToken(cleanToken);
+        boolean isValid = userService.validateToken(cleanToken, username);
         return ResponseEntity.ok(ApiResponse.success("Token validation completed", isValid));
     }
 

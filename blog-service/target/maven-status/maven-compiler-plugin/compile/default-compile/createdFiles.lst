@@ -1,0 +1,8 @@
+com\blognest\blogservice\entity\Category$CategoryBuilder.class
+com\blognest\blogservice\entity\BlogPost$BlogPostBuilder.class
+com\blognest\blogservice\entity\BlogPost.class
+com\blognest\blogservice\entity\Tag.class
+com\blognest\blogservice\entity\BlogPost$Status.class
+com\blognest\blogservice\BlogServiceApplication.class
+com\blognest\blogservice\entity\Category.class
+com\blognest\blogservice\entity\Tag$TagBuilder.class

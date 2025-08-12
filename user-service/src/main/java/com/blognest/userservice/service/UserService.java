@@ -1,7 +1,7 @@
 package com.blognest.userservice.service;
 
 import com.blognest.common.dto.ApiResponse;
-import com.blognest.common.security.JwtTokenProvider;
+import com.blognest.userservice.config.JwtConfig;
 import com.blognest.userservice.dto.AuthRequest;
 import com.blognest.userservice.dto.AuthResponse;
 import com.blognest.userservice.dto.UserRegistrationRequest;
@@ -32,7 +32,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final JwtConfig jwtConfig;
     private final AuthenticationManager authenticationManager;
 
     public ApiResponse<AuthResponse> authenticate(AuthRequest authRequest) {
@@ -42,7 +42,7 @@ public class UserService {
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            String jwt = jwtTokenProvider.generateToken(authentication);
+            String jwt = jwtConfig.generateToken(authRequest.getUsername());
 
             User user = userRepository.findByUsername(authRequest.getUsername())
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
@@ -166,11 +166,11 @@ public class UserService {
         return ApiResponse.success(users);
     }
 
-    public boolean validateToken(String token) {
-        return jwtTokenProvider.validateToken(token);
+    public boolean validateToken(String token, String username) {
+        return jwtConfig.validateToken(token, username);
     }
 
     public String getUsernameFromToken(String token) {
-        return jwtTokenProvider.getUsernameFromToken(token);
+        return jwtConfig.extractUsername(token);
     }
 } 
