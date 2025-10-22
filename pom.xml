@@ -19,10 +19,10 @@
     <name>BlogNest Parent</name>
     <description>Scalable Blog Platform with Microservices Architecture</description>
 
-    <properties>
-        <java.version>17</java.version>
-        <spring-cloud.version>2023.0.0</spring-cloud.version>
-        <spring-boot.version>3.2.0</spring-boot.version>
+           <properties>
+               <java.version>21</java.version>
+               <spring-cloud.version>2023.0.0</spring-cloud.version>
+               <spring-boot.version>3.2.0</spring-boot.version>
         <jwt.version>0.11.5</jwt.version>
         <postgresql.version>42.7.1</postgresql.version>
         <redis.version>3.2.1</redis.version>

@@ -26,7 +26,7 @@ blognest/
 ## Technology stack
 
 - Backend:
-  - Java 17, Spring Boot 3.2, Spring Cloud 2023.0
+  - Java 21, Spring Boot 3.2, Spring Cloud 2023.0
   - Spring Web, Spring Data JPA, Spring Security
   - Spring Cloud Gateway, Eureka (Service Discovery), Spring Cloud Config
   - JWT (io.jsonwebtoken: jjwt-*), Lombok

@@ -85,7 +85,7 @@ A modern, scalable blog platform built with Spring Boot microservices architectu
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Java 17+
+- Java 21+
 - Node.js 18+
 - Docker & Docker Compose
 - PostgreSQL
@@ -117,7 +117,7 @@ npm start
 If you prefer to run the project without Docker, follow these steps:
 
 ### Prerequisites (Without Docker)
-- Java 17+ installed
+- Java 21+ installed
 - Maven 3.6+ installed  
 - Node.js 16+ installed
 - PostgreSQL 15+ installed and running
