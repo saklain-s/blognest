@@ -3,6 +3,8 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json
+yarn.lock
 
 # Runtime data
 pids
@@ -119,6 +121,14 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
+
+# Build outputs
+dist/
+build/
+target/
+*.jar
+*.war
+*.ear
 
 # Optional npm cache directory
 .npm
