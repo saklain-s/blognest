@@ -112,6 +112,108 @@ npm install
 npm start
 ```
 
+## 🏃‍♂️ Running Without Docker
+
+If you prefer to run the project without Docker, follow these steps:
+
+### Prerequisites (Without Docker)
+- Java 17+ installed
+- Maven 3.6+ installed  
+- Node.js 16+ installed
+- PostgreSQL 15+ installed and running
+- Redis 7+ installed and running
+- Elasticsearch 8.11+ installed and running
+
+### Database Setup
+```sql
+-- Create databases for each service
+CREATE DATABASE blognest_users;
+CREATE DATABASE blognest_blogs;
+CREATE DATABASE blognest_comments;
+CREATE DATABASE blognest_notifications;
+
+-- Create user (optional)
+CREATE USER blognest_user WITH PASSWORD 'password';
+GRANT ALL PRIVILEGES ON DATABASE blognest_users TO blognest_user;
+GRANT ALL PRIVILEGES ON DATABASE blognest_blogs TO blognest_user;
+GRANT ALL PRIVILEGES ON DATABASE blognest_comments TO blognest_user;
+GRANT ALL PRIVILEGES ON DATABASE blognest_notifications TO blognest_user;
+```
+
+### Start Infrastructure Services
+```bash
+# Start PostgreSQL (default port 5432)
+# Start Redis (default port 6379)
+# Start Elasticsearch (default port 9200)
+# Make sure to disable security for local development
+# Add to elasticsearch.yml:
+# xpack.security.enabled: false
+# discovery.type: single-node
+```
+
+### Build and Run Services
+```bash
+# Build the project
+mvn clean package -DskipTests
+
+# Run services in separate terminals (in this order):
+
+# Terminal 1: Service Discovery
+mvn -pl service-discovery spring-boot:run
+
+# Terminal 2: Config Server (optional - can be skipped)
+mvn -pl config-server spring-boot:run
+
+# Terminal 3: User Service
+mvn -pl user-service spring-boot:run
+
+# Terminal 4: Blog Service
+mvn -pl blog-service spring-boot:run
+
+# Terminal 5: Comment Service
+mvn -pl comment-service spring-boot:run
+
+# Terminal 6: Notification Service
+mvn -pl notification-service spring-boot:run
+
+# Terminal 7: API Gateway
+mvn -pl api-gateway spring-boot:run
+```
+
+### Run Frontend
+```bash
+cd frontend
+npm install
+npm start
+```
+
+### Access Points
+- **Frontend**: http://localhost:3000
+- **API Gateway**: http://localhost:8080
+- **Eureka Dashboard**: http://localhost:8761
+- **User Service**: http://localhost:8081
+- **Blog Service**: http://localhost:8082
+- **Comment Service**: http://localhost:8083
+- **Notification Service**: http://localhost:8084
+
+### Configuration Updates
+Update database connection strings in each service's `application.yml`:
+
+```yaml
+# Example for user-service/src/main/resources/application.yml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/blognest_users
+    username: postgres  # or your PostgreSQL username
+    password: password  # or your PostgreSQL password
+```
+
+### Troubleshooting
+- **Database Connection Issues**: Ensure PostgreSQL is running and databases exist
+- **Service Discovery**: Start Eureka server first, then other services
+- **Config Server**: Can be skipped for local development
+- **Port Conflicts**: Ensure no other services are using ports 3000, 8080-8084, 8761, 8888, 5432, 6379, 9200
+
 ## 📈 Performance Metrics
 
 - **Response Time**: < 200ms average

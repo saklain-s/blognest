@@ -387,10 +387,11 @@ class UserServiceTest {
     void validateToken_Success() {
         // Arrange
         String token = "valid-token";
+        String username = "testuser";
         when(jwtTokenProvider.validateToken(token)).thenReturn(true);
 
         // Act
-        boolean result = userService.validateToken(token);
+        boolean result = userService.validateToken(token, username);
 
         // Assert
         assertTrue(result);
@@ -400,10 +401,11 @@ class UserServiceTest {
     void validateToken_Failure() {
         // Arrange
         String token = "invalid-token";
+        String username = "testuser";
         when(jwtTokenProvider.validateToken(token)).thenReturn(false);
 
         // Act
-        boolean result = userService.validateToken(token);
+        boolean result = userService.validateToken(token, username);
 
         // Assert
         assertFalse(result);

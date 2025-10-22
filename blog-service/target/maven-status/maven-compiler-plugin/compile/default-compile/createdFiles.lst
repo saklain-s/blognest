@@ -4,5 +4,6 @@ com\blognest\blogservice\entity\BlogPost.class
 com\blognest\blogservice\entity\Tag.class
 com\blognest\blogservice\entity\BlogPost$Status.class
 com\blognest\blogservice\BlogServiceApplication.class
+com\blognest\blogservice\config\SecurityConfig.class
 com\blognest\blogservice\entity\Category.class
 com\blognest\blogservice\entity\Tag$TagBuilder.class
